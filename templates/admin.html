@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실시간 방문자 & 네이버광고 분석 대시보드</title>
+    <!-- Modern Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.45);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --accent-blue: #38bdf8;
+            --accent-purple: #a855f7;
+            --accent-green: #10b981;
+            --accent-naver: #03c75a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --font-family: 'Inter', 'Noto Sans KR', sans-serif;
+            --glass-blur: 16px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(56, 189, 248, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%),
+                radial-gradient(at 50% 100%, rgba(15, 23, 42, 0.95) 0px, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-main);
+            font-family: var(--font-family);
+            min-height: 100vh;
+            padding: 2rem 1.5rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Header Style */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2.5rem;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+        }
+
+        .logo-icon {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: white;
+            box-shadow: 0 8px 24px rgba(56, 189, 248, 0.25);
+        }
+
+        .title-group h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+        }
+
+        .title-group p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 0.2rem;
+        }
+
+        .status-badge {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.1);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-green);
+            border-radius: 50%;
+            display: inline-block;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.6; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.6; }
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(var(--glass-blur));
+            -webkit-backdrop-filter: blur(var(--glass-blur));
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .glass-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3), 0 0 15px rgba(56, 189, 248, 0.1);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .stat-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stat-info p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-info h3 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+        }
+
+        .stat-icon-wrapper {
+            width: 54px;
+            height: 54px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+        }
+
+        .stat-blue .stat-icon-wrapper {
+            background: rgba(56, 189, 248, 0.1);
+            color: var(--accent-blue);
+        }
+        .stat-naver .stat-icon-wrapper {
+            background: rgba(3, 199, 90, 0.1);
+            color: var(--accent-naver);
+        }
+        .stat-purple .stat-icon-wrapper {
+            background: rgba(168, 85, 247, 0.1);
+            color: var(--accent-purple);
+        }
+        .stat-green .stat-icon-wrapper {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+        }
+
+        /* Middle Dashboard Content */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.8rem;
+        }
+
+        .card-header h2 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+
+        .card-header h2 i {
+            color: var(--accent-blue);
+        }
+
+        /* Charts & Lists */
+        .chart-container {
+            position: relative;
+            height: 320px;
+            width: 100%;
+        }
+
+        .ranking-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .ranking-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .ranking-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+        }
+
+        .ranking-name {
+            font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 70%;
+        }
+
+        .ranking-count {
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        .progress-bar-bg {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple));
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.8s ease-in-out;
+        }
+
+        .progress-bar-naver {
+            background: linear-gradient(90deg, var(--accent-naver), #10b981);
+        }
+
+        /* Logs Table */
+        .logs-section {
+            margin-bottom: 2.5rem;
+        }
+
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            border-radius: 12px;
+            margin-top: 1rem;
+        }
+
+        .logs-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        .logs-table th {
+            background: rgba(15, 23, 42, 0.4);
+            color: var(--text-muted);
+            font-weight: 600;
+            padding: 1rem 1.2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            white-space: nowrap;
+        }
+
+        .logs-table td {
+            padding: 1rem 1.2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            color: var(--text-main);
+            vertical-align: middle;
+            white-space: nowrap;
+        }
+
+        .logs-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Badges styling */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.3rem 0.65rem;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .badge-naver {
+            background: rgba(3, 199, 90, 0.15);
+            border: 1px solid rgba(3, 199, 90, 0.3);
+            color: #02b34f;
+        }
+
+        .badge-organic {
+            background: rgba(56, 189, 248, 0.12);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            color: var(--accent-blue);
+        }
+
+        .badge-device {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+        }
+
+        .keyword-cell {
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+
+        .referrer-link {
+            color: var(--text-muted);
+            text-decoration: none;
+            max-width: 250px;
+            display: inline-block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            transition: color 0.2s;
+        }
+
+        .referrer-link:hover {
+            color: var(--accent-blue);
+        }
+
+        /* Tracker Integration Guide */
+        .guide-section {
+            margin-top: 2.5rem;
+        }
+
+        .code-block {
+            background: rgba(15, 23, 42, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 1.2rem;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: #e2e8f0;
+            overflow-x: auto;
+            position: relative;
+            margin-top: 1rem;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.8rem;
+            right: 0.8rem;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            color: var(--text-main);
+            padding: 0.4rem 0.8rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-family: var(--font-family);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .copy-btn:hover {
+            background: var(--accent-blue);
+            color: #0f172a;
+            border-color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        /* Uptime Robot Panel */
+        .uptime-panel {
+            background: rgba(16, 185, 129, 0.05);
+            border: 1px solid rgba(16, 185, 129, 0.15);
+            margin-top: 1.5rem;
+            padding: 1.2rem;
+            border-radius: 12px;
+        }
+
+        .uptime-panel h4 {
+            color: #34d399;
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .uptime-panel p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1.5rem;
+            color: var(--text-muted);
+        }
+
+        .empty-state i {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <header>
+        <div class="logo-section">
+            <div class="logo-icon">
+                <i class="fa-solid fa-chart-line"></i>
+            </div>
+            <div class="title-group">
+                <h1>실시간 유입분석 대시보드</h1>
+                <p>보일러114 (https://xn--114-vg9lq14f91dhn0a.com) 방문자 분석</p>
+            </div>
+        </div>
+        <div class="status-badge">
+            <span class="status-dot"></span>
+            실시간 모니터링 활성화됨
+        </div>
+    </header>
+
+    <!-- Statistics Cards -->
+    <div class="stats-grid">
+        <!-- Card 1 -->
+        <div class="glass-card stat-card stat-blue">
+            <div class="stat-info">
+                <p>오늘 전체 방문자</p>
+                <h3 id="stat-total">0</h3>
+            </div>
+            <div class="stat-icon-wrapper">
+                <i class="fa-solid fa-users"></i>
+            </div>
+        </div>
+        <!-- Card 2 -->
+        <div class="glass-card stat-card stat-naver">
+            <div class="stat-info">
+                <p>네이버 광고 유입</p>
+                <h3 id="stat-naver">0</h3>
+            </div>
+            <div class="stat-icon-wrapper">
+                <i class="fa-solid fa-square-n"></i>
+            </div>
+        </div>
+        <!-- Card 3 -->
+        <div class="glass-card stat-card stat-purple">
+            <div class="stat-info">
+                <p>일반 유입 (검색 등)</p>
+                <h3 id="stat-organic">0</h3>
+            </div>
+            <div class="stat-icon-wrapper">
+                <i class="fa-solid fa-globe"></i>
+            </div>
+        </div>
+        <!-- Card 4 -->
+        <div class="glass-card stat-card stat-green">
+            <div class="stat-info">
+                <p>네이버 광고 비율</p>
+                <h3 id="stat-ratio">0%</h3>
+            </div>
+            <div class="stat-icon-wrapper">
+                <i class="fa-solid fa-percent"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Main Grid -->
+    <div class="dashboard-grid">
+        <!-- Real-time Hourly Chart -->
+        <div class="glass-card">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-chart-area"></i> 시간대별 유입 트렌드 (최근 24시간)</h2>
+            </div>
+            <div class="chart-container">
+                <canvas id="trafficChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Right Side Lists -->
+        <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-magnifying-glass"></i> 네이버 광고 인기 키워드</h2>
+                </div>
+                <ul class="ranking-list" id="keyword-list">
+                    <li class="empty-state" style="padding: 1.5rem 0;">데이터가 없습니다.</li>
+                </ul>
+            </div>
+
+            <div style="margin-top: 1.5rem;">
+                <div class="card-header">
+                    <h2><i class="fa-solid fa-arrow-right-to-bracket"></i> 상위 유입 채널 (Referrer)</h2>
+                </div>
+                <ul class="ranking-list" id="referrer-list">
+                    <li class="empty-state" style="padding: 1.5rem 0;">데이터가 없습니다.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Logs Table -->
+    <div class="glass-card logs-section">
+        <div class="card-header">
+            <h2><i class="fa-solid fa-list-check"></i> 실시간 방문자 로그 (최근 50개)</h2>
+        </div>
+        <div class="table-responsive">
+            <table class="logs-table">
+                <thead>
+                    <tr>
+                        <th>방문 시간</th>
+                        <th>유입 경로</th>
+                        <th>IP 주소</th>
+                        <th>구분</th>
+                        <th>네이버 검색 키워드</th>
+                        <th>상세 유입 URL</th>
+                        <th>기기</th>
+                    </tr>
+                </thead>
+                <tbody id="logs-tbody">
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <i class="fa-solid fa-spinner fa-spin"></i>
+                            <p>실시간 로그를 불러오는 중입니다...</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Integration Code and Uptime Robot Guide -->
+    <div class="glass-card guide-section">
+        <div class="card-header">
+            <h2><i class="fa-solid fa-circle-info"></i> 추적 스크립트 연동 & 모니터링 설정 방법</h2>
+        </div>
+        
+        <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 1rem; color: #cbd5e1;">
+            방문자 분석을 시작하려면 아래 추적 스크립트 코드를 복사하여 대상 홈페이지(보일러114)의 HTML 파일 하단 <strong>&lt;/body&gt;</strong> 태그 바로 위에 삽입하세요.
+        </p>
+
+        <div class="code-block">
+            <button class="copy-btn" onclick="copyTrackerCode()"><i class="fa-regular fa-copy"></i> 코드 복사</button>
+            <span id="script-code-text"></span>
+        </div>
+
+        <div class="uptime-panel">
+            <h4><i class="fa-solid fa-server"></i> UptimeRobot(업타임로봇) Render 무료 서버 Keep-Alive 설정</h4>
+            <p style="margin-bottom: 0.5rem;">
+                Render 무료 서버는 15분 동안 새로운 방문이 없으면 자동으로 수면 모드로 전환되어 다음 방문 시 첫 로딩 속도가 30초 이상 지연될 수 있습니다.
+                이를 방지하기 위해 <strong>UptimeRobot</strong>을 사용하여 10분 간격으로 호출을 주면 서버가 잠들지 않고 언제나 실시간으로 유지됩니다!
+            </p>
+            <p>
+                <strong>설정 방법:</strong> UptimeRobot 모니터 생성 시 <strong>HTTP(s) 모니터</strong>를 선택하고, URL에 <strong>홈페이지 주소가 아닌 아래 핑(Ping) 전용 주소</strong>를 등록하세요. 
+                이 주소는 방문자 통계에 전혀 영향을 미치지 않고 서버 생존 대답만 해주는 모니터링 특화 주소입니다.
+            </p>
+            <div style="background: rgba(15, 23, 42, 0.4); padding: 0.6rem; border-radius: 6px; font-family: monospace; font-size: 0.85rem; color: #34d399; margin-top: 0.6rem; border: 1px solid rgba(52, 211, 153, 0.2);" id="ping-url-text">
+                로딩 중...
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Build tracker URL dynamically based on current host
+    const currentHost = window.location.origin;
+    const trackerUrl = `${currentHost}/tracker.js`;
+    const pingUrl = `${currentHost}/ping`;
+    
+    document.getElementById('script-code-text').textContent = `<script src="${trackerUrl}"><\/script>`;
+    document.getElementById('ping-url-text').textContent = pingUrl;
+
+    function copyTrackerCode() {
+        const code = document.getElementById('script-code-text').textContent;
+        navigator.clipboard.writeText(code).then(() => {
+            const btn = document.querySelector('.copy-btn');
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> 복사 완료!';
+            btn.style.background = 'var(--accent-green)';
+            btn.style.color = '#0f172a';
+            setTimeout(() => {
+                btn.innerHTML = '<i class="fa-regular fa-copy"></i> 코드 복사';
+                btn.style.background = 'var(--card-bg)';
+                btn.style.color = 'var(--text-main)';
+            }, 2000);
+        });
+    }
+
+    // Chart.js initialization
+    let trafficChart;
+    
+    function initChart(hours = [], naverCounts = [], otherCounts = []) {
+        const ctx = document.getElementById('trafficChart').getContext('2d');
+        
+        // If chart already exists, destroy it before creating new one
+        if (trafficChart) {
+            trafficChart.destroy();
+        }
+        
+        trafficChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: hours.map(h => `${h}시`),
+                datasets: [
+                    {
+                        label: '네이버 광고 유입',
+                        data: naverCounts,
+                        borderColor: '#03c75a',
+                        backgroundColor: 'rgba(3, 199, 90, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointBackgroundColor: '#03c75a',
+                        pointHoverRadius: 7
+                    },
+                    {
+                        label: '일반/자연 유입',
+                        data: otherCounts,
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.05)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointBackgroundColor: '#38bdf8',
+                        pointHoverRadius: 7
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#94a3b8',
+                            font: {
+                                family: 'Inter, Noto Sans KR'
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)'
+                        },
+                        ticks: {
+                            color: '#94a3b8'
+                        }
+                    },
+                    y: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)'
+                        },
+                        ticks: {
+                            color: '#94a3b8',
+                            stepSize: 1
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+
+    // Format Referrer for display
+    function formatReferrer(ref) {
+        if (!ref) return '직접 입력 / 즐겨찾기';
+        try {
+            const url = new URL(ref);
+            if (url.netloc === '') {
+                // Return simple domain name or full domain
+                return url.hostname;
+            }
+            return url.hostname;
+        } catch(e) {
+            return ref;
+        }
+    }
+
+    // Refresh Dashboard Data
+    function refreshData() {
+        fetch('/api/stats')
+            .then(res => res.json())
+            .then(data => {
+                // 1. Update stats card
+                const stats = data.stats;
+                document.getElementById('stat-total').textContent = stats.total_visitors.toLocaleString();
+                document.getElementById('stat-naver').textContent = stats.naver_ad_visitors.toLocaleString();
+                document.getElementById('stat-organic').textContent = stats.organic_visitors.toLocaleString();
+                document.getElementById('stat-ratio').textContent = `${stats.naver_ratio}%`;
+
+                // 2. Update keyword rankings
+                const keywordList = document.getElementById('keyword-list');
+                keywordList.innerHTML = '';
+                if (stats.top_keywords.length === 0) {
+                    keywordList.innerHTML = '<li class="empty-state" style="padding: 1.5rem 0;">광고 유입 데이터가 없습니다.</li>';
+                } else {
+                    const maxCount = Math.max(...stats.top_keywords.map(k => k.count));
+                    stats.top_keywords.forEach((item, index) => {
+                        const pct = maxCount > 0 ? (item.count / maxCount * 100) : 0;
+                        keywordList.innerHTML += `
+                            <li class="ranking-item">
+                                <div class="ranking-info">
+                                    <span class="ranking-name">${index + 1}. <strong class="keyword-cell">"${item.naver_keyword}"</strong></span>
+                                    <span class="ranking-count">${item.count}회 클릭</span>
+                                </div>
+                                <div class="progress-bar-bg">
+                                    <div class="progress-bar-fill progress-bar-naver" style="width: ${pct}%"></div>
+                                </div>
+                            </li>
+                        `;
+                    });
+                }
+
+                // 3. Update top referrers
+                const referrerList = document.getElementById('referrer-list');
+                referrerList.innerHTML = '';
+                if (stats.top_referrers.length === 0) {
+                    referrerList.innerHTML = '<li class="empty-state" style="padding: 1.5rem 0;">유입 채널 데이터가 없습니다.</li>';
+                } else {
+                    const maxCount = Math.max(...stats.top_referrers.map(r => r.count));
+                    stats.top_referrers.forEach((item, index) => {
+                        const pct = maxCount > 0 ? (item.count / maxCount * 100) : 0;
+                        const displayRef = formatReferrer(item.referrer);
+                        referrerList.innerHTML += `
+                            <li class="ranking-item">
+                                <div class="ranking-info">
+                                    <span class="ranking-name">${index + 1}. <span title="${item.referrer}">${displayRef}</span></span>
+                                    <span class="ranking-count">${item.count}회</span>
+                                </div>
+                                <div class="progress-bar-bg">
+                                    <div class="progress-bar-fill" style="width: ${pct}%"></div>
+                                </div>
+                            </li>
+                        `;
+                    });
+                }
+
+                // 4. Update Logs Table
+                const logsTbody = document.getElementById('logs-tbody');
+                logsTbody.innerHTML = '';
+                if (data.logs.length === 0) {
+                    logsTbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="padding: 4rem 0;"><i class="fa-solid fa-folder-open"></i><p>아직 수집된 방문 기록이 없습니다.</p></td></tr>';
+                } else {
+                    data.logs.forEach(log => {
+                        const badgeClass = log.is_naver_ad ? 'badge-naver' : 'badge-organic';
+                        const badgeText = log.is_naver_ad ? '<i class="fa-solid fa-square-n"></i> 네이버광고' : '<i class="fa-solid fa-globe"></i> 일반유입';
+                        const keywordDisplay = log.naver_keyword ? `"${log.naver_keyword}"` : '-';
+                        const mediaDisplay = log.naver_media ? ` <span style="font-size:0.75rem; color:var(--text-muted)">(${log.naver_media})</span>` : '';
+                        const refDisplay = log.referrer ? `<a href="${log.referrer}" target="_blank" class="referrer-link">${log.referrer}</a>` : '직접 입력 / 즐겨찾기';
+                        const deviceIcon = log.device_type === 'Mobile' ? 'fa-mobile-screen-button' : (log.device_type === 'Tablet' ? 'fa-tablet-screen-button' : 'fa-desktop');
+                        
+                        logsTbody.innerHTML += `
+                            <tr>
+                                <td style="font-weight: 500;">${log.timestamp}</td>
+                                <td>${formatReferrer(log.referrer)}</td>
+                                <td style="font-family: monospace; font-size: 0.95rem; letter-spacing: 0.02em;">${log.ip_address}</td>
+                                <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+                                <td><span class="keyword-cell">${keywordDisplay}</span>${mediaDisplay}</td>
+                                <td>${refDisplay}</td>
+                                <td><span class="badge badge-device"><i class="fa-solid ${deviceIcon}"></i> ${log.device_type}</span></td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                // 5. Update chart
+                const traffic = stats.hourly_traffic;
+                const hours = traffic.map(t => t.hour);
+                const naverCounts = traffic.map(t => t.naver_count);
+                const otherCounts = traffic.map(t => t.other_count);
+                initChart(hours, naverCounts, otherCounts);
+            })
+            .catch(err => console.error("Error fetching stats:", err));
+    }
+
+    // Initial load
+    refreshData();
+
+    // Auto refresh every 5 seconds for real-time monitoring
+    setInterval(refreshData, 5000);
+</script>
+</body>
+</html>

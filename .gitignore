@@ -1,0 +1,14 @@
+# Database files
+tracker.db
+
+# Developer test simulator
+simulate_visits.py
+
+# Python environment and cache
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+.idea/
+.vscode/
