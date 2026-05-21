@@ -33,32 +33,30 @@ def detect_device(user_agent):
 
 def parse_naver_ads(url, referrer):
     """
-    Parses Naver ad parameters from the URL and checks the referrer.
-    Naver parameters: n_media, n_query, n_rank, n_ad_group, n_ad, n_keyword
+    Parses Naver and Daum ad parameters from the URL and checks the referrer.
+    - Return value for is_ad_type: 0 (Organic), 1 (Naver Ad), 2 (Daum Ad)
     """
-    is_naver_ad = False
+    is_ad_type = 0
     keyword = None
     media = None
     ad_group = None
     ad_id = None
 
     if not url:
-        return is_naver_ad, keyword, media, ad_group, ad_id
+        return is_ad_type, keyword, media, ad_group, ad_id
 
     # Parse URL parameters
     parsed_url = urllib.parse.urlparse(url)
     params = urllib.parse.parse_qs(parsed_url.query)
 
-    # Check for Naver tracking parameters (e.g. n_media, n_query)
-    # The parameters are returned as lists by parse_qs
+    # 1. Check for Naver tracking parameters (e.g. n_media, n_query)
     if 'n_media' in params or 'n_query' in params or 'n_keyword' in params:
-        is_naver_ad = True
+        is_ad_type = 1
         
         # Decode keyword (usually in n_query)
         if 'n_query' in params:
             raw_keyword = params['n_query'][0]
             try:
-                # Naver keyword is URL encoded
                 keyword = urllib.parse.unquote(raw_keyword)
             except Exception:
                 keyword = raw_keyword
@@ -66,7 +64,6 @@ def parse_naver_ads(url, referrer):
         # Extract media source
         if 'n_media' in params:
             media_code = params['n_media'][0]
-            # Map common Naver media codes if known, else display code
             media_map = {
                 '1': '네이버_통합검색(PC)',
                 '2': '네이버_통합검색(모바일)',
@@ -74,7 +71,7 @@ def parse_naver_ads(url, referrer):
                 '4': '네이버_블로그/카페',
                 '5': '네이버_쇼핑'
             }
-            media = media_map.get(media_code, f"기타매체({media_code})")
+            media = media_map.get(media_code, f"네이버_기타매체({media_code})")
         
         # Extract ad group and ad ID
         if 'n_ad_group' in params:
@@ -82,12 +79,57 @@ def parse_naver_ads(url, referrer):
         if 'n_ad' in params:
             ad_id = params['n_ad'][0]
 
-    # Double check Referrer as fallback for organic Naver search or ad clicks
-    if not is_naver_ad and referrer:
+    # 2. Check for Daum / Kakao Keyword Ads tracking parameters (e.g. DMKW, k_query, k_keyword)
+    elif any(k in params for k in ['DMKW', 'DMCOL', 'k_query', 'k_keyword', 'k_campaign']):
+        is_ad_type = 2
+        
+        # Extract keyword (k_query is actual user query, DMKW is target keyword, k_keyword is registered keyword)
+        if 'k_query' in params:
+            raw_keyword = params['k_query'][0]
+        elif 'DMKW' in params:
+            raw_keyword = params['DMKW'][0]
+        elif 'k_keyword' in params:
+            raw_keyword = params['k_keyword'][0]
+        else:
+            raw_keyword = None
+
+        if raw_keyword:
+            try:
+                keyword = urllib.parse.unquote(raw_keyword)
+            except Exception:
+                keyword = raw_keyword
+
+        # Extract media / collection
+        if 'DMCOL' in params:
+            col_code = params['DMCOL'][0].upper()
+            col_map = {
+                'PM': '다음_프리미엄링크',
+                'SM': '다음_와이드링크',
+                'MOBILE': '다음_모바일웹'
+            }
+            media = col_map.get(col_code, f"다음_기타매체({col_code})")
+        else:
+            media = '다음_검색광고'
+
+        # Extract campaign and adgroup as group and ad IDs
+        if 'k_campaign' in params:
+            ad_group = f"캠페인:{params['k_campaign'][0]}"
+        if 'k_adgroup' in params:
+            ad_id = f"그룹:{params['k_adgroup'][0]}"
+
+    # Double check Referrer as fallback
+    if is_ad_type == 0 and referrer:
         parsed_ref = urllib.parse.urlparse(referrer)
         if 'ad.search.naver.com' in parsed_ref.netloc:
-            is_naver_ad = True
-            # Try to grab keywords if any search query is in the referrer
+            is_ad_type = 1
+            ref_params = urllib.parse.parse_qs(parsed_ref.query)
+            if 'q' in ref_params:
+                try:
+                    keyword = urllib.parse.unquote(ref_params['q'][0])
+                except Exception:
+                    pass
+        elif 'search.daum.net' in parsed_ref.netloc:
+            # Daum Organic search (not ad)
             ref_params = urllib.parse.parse_qs(parsed_ref.query)
             if 'q' in ref_params:
                 try:
@@ -95,8 +137,6 @@ def parse_naver_ads(url, referrer):
                 except Exception:
                     pass
         elif 'search.naver.com' in parsed_ref.netloc:
-            # Note: This is regular Naver search (Organic), not search ads.
-            # We keep is_naver_ad = False but could log keyword if needed.
             ref_params = urllib.parse.parse_qs(parsed_ref.query)
             if 'query' in ref_params:
                 try:
@@ -104,7 +144,7 @@ def parse_naver_ads(url, referrer):
                 except Exception:
                     pass
 
-    return is_naver_ad, keyword, media, ad_group, ad_id
+    return is_ad_type, keyword, media, ad_group, ad_id
 
 
 @app.route('/ping', methods=['GET'])

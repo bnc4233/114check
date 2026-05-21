@@ -345,6 +345,12 @@
             color: #02b34f;
         }
 
+        .badge-daum {
+            background: rgba(250, 204, 21, 0.15);
+            border: 1px solid rgba(250, 204, 21, 0.35);
+            color: #eab308;
+        }
+
         .badge-organic {
             background: rgba(56, 189, 248, 0.12);
             border: 1px solid rgba(56, 189, 248, 0.25);
@@ -492,11 +498,12 @@
         <!-- Card 2 -->
         <div class="glass-card stat-card stat-naver">
             <div class="stat-info">
-                <p>네이버 광고 유입</p>
+                <p>광고 유입 (네이버/다음)</p>
                 <h3 id="stat-naver">0</h3>
+                <span id="stat-ad-details" style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-top: 0.2rem;">네이버: 0 | 다음: 0</span>
             </div>
             <div class="stat-icon-wrapper">
-                <i class="fa-solid fa-square-n"></i>
+                <i class="fa-solid fa-rectangle-ad"></i>
             </div>
         </div>
         <!-- Card 3 -->
@@ -512,7 +519,7 @@
         <!-- Card 4 -->
         <div class="glass-card stat-card stat-green">
             <div class="stat-info">
-                <p>네이버 광고 비율</p>
+                <p>전체 광고 비율</p>
                 <h3 id="stat-ratio">0%</h3>
             </div>
             <div class="stat-icon-wrapper">
@@ -537,7 +544,7 @@
         <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between;">
             <div>
                 <div class="card-header">
-                    <h2><i class="fa-solid fa-magnifying-glass"></i> 네이버 광고 인기 키워드</h2>
+                    <h2><i class="fa-solid fa-magnifying-glass"></i> 광고 유입 인기 키워드</h2>
                 </div>
                 <ul class="ranking-list" id="keyword-list">
                     <li class="empty-state" style="padding: 1.5rem 0;">데이터가 없습니다.</li>
@@ -660,14 +667,14 @@
                 labels: hours.map(h => `${h}시`),
                 datasets: [
                     {
-                        label: '네이버 광고 유입',
+                        label: '광고 유입 (네이버/다음)',
                         data: naverCounts,
-                        borderColor: '#03c75a',
-                        backgroundColor: 'rgba(3, 199, 90, 0.1)',
+                        borderColor: '#a855f7', // Use purple accent for unified ad
+                        backgroundColor: 'rgba(168, 85, 247, 0.1)',
                         fill: true,
                         tension: 0.4,
                         borderWidth: 2,
-                        pointBackgroundColor: '#03c75a',
+                        pointBackgroundColor: '#a855f7',
                         pointHoverRadius: 7
                     },
                     {
@@ -742,8 +749,10 @@
             .then(data => {
                 // 1. Update stats card
                 const stats = data.stats;
+                const totalAds = (stats.naver_ad_visitors || 0) + (stats.daum_ad_visitors || 0);
                 document.getElementById('stat-total').textContent = stats.total_visitors.toLocaleString();
-                document.getElementById('stat-naver').textContent = stats.naver_ad_visitors.toLocaleString();
+                document.getElementById('stat-naver').textContent = totalAds.toLocaleString();
+                document.getElementById('stat-ad-details').textContent = `네이버: ${(stats.naver_ad_visitors || 0).toLocaleString()} | 다음: ${(stats.daum_ad_visitors || 0).toLocaleString()}`;
                 document.getElementById('stat-organic').textContent = stats.organic_visitors.toLocaleString();
                 document.getElementById('stat-ratio').textContent = `${stats.naver_ratio}%`;
 
@@ -801,8 +810,17 @@
                     logsTbody.innerHTML = '<tr><td colspan="8" class="empty-state" style="padding: 4rem 0;"><i class="fa-solid fa-folder-open"></i><p>아직 수집된 방문 기록이 없습니다.</p></td></tr>';
                 } else {
                     data.logs.forEach(log => {
-                        const badgeClass = log.is_naver_ad ? 'badge-naver' : 'badge-organic';
-                        const badgeText = log.is_naver_ad ? '<i class="fa-solid fa-square-n"></i> 네이버광고' : '<i class="fa-solid fa-globe"></i> 일반유입';
+                        let badgeClass, badgeText;
+                        if (log.is_naver_ad === 1) {
+                            badgeClass = 'badge-naver';
+                            badgeText = '<i class="fa-solid fa-square-n"></i> 네이버광고';
+                        } else if (log.is_naver_ad === 2) {
+                            badgeClass = 'badge-daum';
+                            badgeText = '<i class="fa-solid fa-comment"></i> 다음광고';
+                        } else {
+                            badgeClass = 'badge-organic';
+                            badgeText = '<i class="fa-solid fa-globe"></i> 일반유입';
+                        }
                         const keywordDisplay = log.naver_keyword ? `"${log.naver_keyword}"` : '-';
                         const mediaDisplay = log.naver_media ? ` <span style="font-size:0.75rem; color:var(--text-muted)">(${log.naver_media})</span>` : '';
                         const refDisplay = log.referrer ? `<a href="${log.referrer}" target="_blank" class="referrer-link">${log.referrer}</a>` : '직접 입력 / 즐겨찾기';

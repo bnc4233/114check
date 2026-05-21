@@ -92,7 +92,7 @@ def log_visitor(ip_address, referrer, user_agent, full_url, is_naver_ad, naver_k
     
     params = (
         timestamp_str, ip_address, referrer, user_agent, full_url,
-        1 if is_naver_ad else 0, naver_keyword, naver_media, naver_ad_group, naver_ad, device_type
+        is_naver_ad, naver_keyword, naver_media, naver_ad_group, naver_ad, device_type
     )
     
     cursor.execute(query, params)
@@ -129,7 +129,7 @@ def get_recent_logs(limit=100):
     return logs
 
 def get_stats_summary():
-    """Calculates statistics dynamically with SQL dialect adaptations."""
+    """Calculates statistics dynamically with SQL dialect adaptations, including Naver and Daum Ads."""
     conn = get_db_connection()
     
     if is_postgres():
@@ -145,21 +145,29 @@ def get_stats_summary():
     else:
         total_visitors = row[0] if row else 0
         
-    # Naver Ad visitors
+    # Naver Ad visitors (is_naver_ad = 1)
     cursor.execute('SELECT COUNT(*) FROM visitor_logs WHERE is_naver_ad = 1')
     row = cursor.fetchone()
     if is_postgres():
         naver_ad_visitors = list(row.values())[0] if row else 0
     else:
         naver_ad_visitors = row[0] if row else 0
+
+    # Daum Ad visitors (is_naver_ad = 2)
+    cursor.execute('SELECT COUNT(*) FROM visitor_logs WHERE is_naver_ad = 2')
+    row = cursor.fetchone()
+    if is_postgres():
+        daum_ad_visitors = list(row.values())[0] if row else 0
+    else:
+        daum_ad_visitors = row[0] if row else 0
         
-    organic_visitors = total_visitors - naver_ad_visitors
+    organic_visitors = total_visitors - naver_ad_visitors - daum_ad_visitors
     
-    # Top keywords from Naver ads
+    # Top keywords from both Naver and Daum ads
     cursor.execute('''
         SELECT naver_keyword, COUNT(*) as count 
         FROM visitor_logs 
-        WHERE is_naver_ad = 1 AND naver_keyword IS NOT NULL AND naver_keyword != ''
+        WHERE is_naver_ad IN (1, 2) AND naver_keyword IS NOT NULL AND naver_keyword != ''
         GROUP BY naver_keyword 
         ORDER BY count DESC 
         LIMIT 5
@@ -177,14 +185,14 @@ def get_stats_summary():
     ''')
     top_referrers = [dict(row) for row in cursor.fetchall()]
 
-    # Traffic source by hour (last 24 hours)
+    # Traffic source by hour (last 24 hours) - combines Naver and Daum Ads into ad_count
     kst_now = datetime.utcnow() + timedelta(hours=9)
     kst_24h_ago = (kst_now - timedelta(hours=24)).strftime('%Y-%m-%d %H:%M:%S')
     
     if is_postgres():
         cursor.execute('''
             SELECT SUBSTRING(timestamp FROM 12 FOR 2) as hour, 
-                   SUM(CASE WHEN is_naver_ad = 1 THEN 1 ELSE 0 END)::integer as naver_count,
+                   SUM(CASE WHEN is_naver_ad IN (1, 2) THEN 1 ELSE 0 END)::integer as naver_count,
                    SUM(CASE WHEN is_naver_ad = 0 THEN 1 ELSE 0 END)::integer as other_count
             FROM visitor_logs
             WHERE timestamp >= %s
@@ -194,7 +202,7 @@ def get_stats_summary():
     else:
         cursor.execute('''
             SELECT strftime('%H', timestamp) as hour, 
-                   SUM(CASE WHEN is_naver_ad = 1 THEN 1 ELSE 0 END) as naver_count,
+                   SUM(CASE WHEN is_naver_ad IN (1, 2) THEN 1 ELSE 0 END) as naver_count,
                    SUM(CASE WHEN is_naver_ad = 0 THEN 1 ELSE 0 END) as other_count
             FROM visitor_logs
             WHERE timestamp >= ?
@@ -210,8 +218,9 @@ def get_stats_summary():
     return {
         'total_visitors': total_visitors,
         'naver_ad_visitors': naver_ad_visitors,
+        'daum_ad_visitors': daum_ad_visitors,
         'organic_visitors': organic_visitors,
-        'naver_ratio': round((naver_ad_visitors / total_visitors * 100), 1) if total_visitors > 0 else 0,
+        'naver_ratio': round(((naver_ad_visitors + daum_ad_visitors) / total_visitors * 100), 1) if total_visitors > 0 else 0,
         'top_keywords': top_keywords,
         'top_referrers': top_referrers,
         'hourly_traffic': hourly_traffic
