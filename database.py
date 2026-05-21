@@ -54,12 +54,14 @@ def log_visitor(ip_address, referrer, user_agent, full_url, is_naver_ad, naver_k
     conn.close()
 
 def get_recent_logs(limit=100):
-    """Retrieves recent visitor logs."""
+    """Retrieves recent visitor logs, including cumulative visit count per IP."""
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT * FROM visitor_logs
-        ORDER BY id DESC
+        SELECT v.*, 
+               (SELECT COUNT(*) FROM visitor_logs WHERE ip_address = v.ip_address) as ip_visit_count
+        FROM visitor_logs v
+        ORDER BY v.id DESC
         LIMIT ?
     ''', (limit,))
     logs = [dict(row) for row in cursor.fetchall()]

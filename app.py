@@ -199,7 +199,7 @@ def admin():
 def api_stats():
     """Returns real-time dashboard data in JSON format."""
     stats = get_stats_summary()
-    recent_logs = get_recent_logs(limit=50)
+    recent_logs = get_recent_logs(limit=100)
     return jsonify({
         "stats": stats,
         "logs": recent_logs
