@@ -49,9 +49,14 @@ def init_db():
                 naver_media VARCHAR(255),
                 naver_ad_group VARCHAR(255),
                 naver_ad VARCHAR(255),
-                device_type VARCHAR(50)
+                device_type VARCHAR(50),
+                site_id VARCHAR(100) DEFAULT 'default'
             )
         ''')
+        try:
+            cursor.execute("ALTER TABLE visitor_logs ADD COLUMN IF NOT EXISTS site_id VARCHAR(100) DEFAULT 'default'")
+        except Exception:
+            pass
     else:
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS visitor_logs (
@@ -66,14 +71,23 @@ def init_db():
                 naver_media TEXT,
                 naver_ad_group TEXT,
                 naver_ad TEXT,
-                device_type TEXT
+                device_type TEXT,
+                site_id TEXT DEFAULT 'default'
             )
         ''')
+        try:
+            cursor.execute("PRAGMA table_info(visitor_logs)")
+            columns = [column[1] for column in cursor.fetchall()]
+            if 'site_id' not in columns:
+                cursor.execute("ALTER TABLE visitor_logs ADD COLUMN site_id TEXT DEFAULT 'default'")
+        except Exception:
+            pass
+
     conn.commit()
     cursor.close()
     conn.close()
 
-def log_visitor(ip_address, referrer, user_agent, full_url, is_naver_ad, naver_keyword=None, naver_media=None, naver_ad_group=None, naver_ad=None, device_type='Unknown'):
+def log_visitor(ip_address, referrer, user_agent, full_url, is_naver_ad, naver_keyword=None, naver_media=None, naver_ad_group=None, naver_ad=None, device_type='Unknown', site_id='default'):
     """Logs a new visitor entry. Works dynamically on both SQLite and PostgreSQL."""
     kst_now = datetime.utcnow() + timedelta(hours=9)
     timestamp_str = kst_now.strftime('%Y-%m-%d %H:%M:%S')
@@ -86,13 +100,13 @@ def log_visitor(ip_address, referrer, user_agent, full_url, is_naver_ad, naver_k
     query = f'''
         INSERT INTO visitor_logs (
             timestamp, ip_address, referrer, user_agent, full_url, 
-            is_naver_ad, naver_keyword, naver_media, naver_ad_group, naver_ad, device_type
-        ) VALUES ({", ".join([placeholder]*11)})
+            is_naver_ad, naver_keyword, naver_media, naver_ad_group, naver_ad, device_type, site_id
+        ) VALUES ({", ".join([placeholder]*12)})
     '''
     
     params = (
         timestamp_str, ip_address, referrer, user_agent, full_url,
-        is_naver_ad, naver_keyword, naver_media, naver_ad_group, naver_ad, device_type
+        is_naver_ad, naver_keyword, naver_media, naver_ad_group, naver_ad, device_type, site_id
     )
     
     cursor.execute(query, params)

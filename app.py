@@ -157,28 +157,49 @@ def ping():
     return "서버 살아있음!", 200
 
 
+def extract_site_id(provided_site, url):
+    """Determines site_id from explicit site parameter or falls back to extracted URL domain."""
+    if provided_site and str(provided_site).strip():
+        return str(provided_site).strip()
+    if url:
+        try:
+            parsed = urllib.parse.urlparse(url)
+            netloc = parsed.netloc or parsed.path.split('/')[0]
+            if netloc:
+                clean_host = netloc.split(':')[0].replace('www.', '')
+                if clean_host:
+                    return clean_host
+        except Exception:
+            pass
+    return 'default'
+
+
 @app.route('/track', methods=['POST'])
 def track():
     """
     Visitor Tracking Endpoint.
-    Receives JSON payload with url, referrer, and userAgent.
+    Receives JSON payload with url, referrer, userAgent, and site_id.
     """
     data = request.get_json(silent=True) or {}
     
     url = data.get('url')
     referrer = data.get('referrer')
     user_agent = data.get('userAgent') or request.headers.get('User-Agent', '')
+    raw_site_id = data.get('site_id') or data.get('site')
     
-    # 1. Get real visitor IP
+    # 1. Determine site_id
+    site_id = extract_site_id(raw_site_id, url)
+
+    # 2. Get real visitor IP
     ip_address = get_client_ip()
     
-    # 2. Parse Naver Ads indicators
+    # 3. Parse Naver Ads indicators
     is_naver_ad, keyword, media, ad_group, ad_id = parse_naver_ads(url, referrer)
     
-    # 3. Detect device type
+    # 4. Detect device type
     device_type = detect_device(user_agent)
     
-    # 4. Log to database
+    # 5. Log to database
     log_visitor(
         ip_address=ip_address,
         referrer=referrer,
@@ -189,10 +210,11 @@ def track():
         naver_media=media,
         naver_ad_group=ad_group,
         naver_ad=ad_id,
-        device_type=device_type
+        device_type=device_type,
+        site_id=site_id
     )
     
-    return jsonify({"status": "success", "recorded": True}), 200
+    return jsonify({"status": "success", "recorded": True, "site_id": site_id}), 200
 
 
 @app.route('/tracker.js', methods=['GET'])
@@ -200,16 +222,32 @@ def tracker_js():
     """
     Generates a dynamic tracking JavaScript file.
     Automatically detects the server host so that it points to the correct /track URL.
+    Supports ?site=uplus1 parameter or data-site attribute.
     """
     # Build host URL
     protocol = "https" if request.is_secure or request.headers.get('X-Forwarded-Proto') == 'https' else "http"
     host_url = f"{protocol}://{request.host}"
     
+    query_site = request.args.get('site') or request.args.get('site_id') or request.args.get('s') or ''
+    
     js_content = f"""
     (function() {{
         // Real-time Traffic Tracker Script
         try {{
+            var currentScript = document.currentScript;
+            var scriptSite = "{query_site}";
+            if (!scriptSite && currentScript && currentScript.src) {{
+                try {{
+                    var scriptUrl = new URL(currentScript.src);
+                    scriptSite = scriptUrl.searchParams.get('site') || scriptUrl.searchParams.get('site_id') || scriptUrl.searchParams.get('s') || '';
+                }} catch(e) {{}}
+            }}
+            if (!scriptSite && currentScript) {{
+                scriptSite = currentScript.getAttribute('data-site') || '';
+            }}
+            
             var trackingData = {{
+                site_id: scriptSite,
                 url: window.location.href,
                 referrer: document.referrer,
                 userAgent: navigator.userAgent,

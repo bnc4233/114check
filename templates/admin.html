@@ -562,50 +562,56 @@
         </div>
     </div>
 
-    <!-- Live Logs Table -->
-    <div class="glass-card logs-section">
-        <div class="card-header">
-            <h2><i class="fa-solid fa-list-check"></i> 실시간 방문자 로그 (최근 100개)</h2>
-        </div>
-        <div class="table-responsive">
-            <table class="logs-table">
-                <thead>
-                    <tr>
-                        <th>방문 시간</th>
-                        <th>유입 경로</th>
-                        <th>IP 주소</th>
-                        <th>누적 방문수</th>
-                        <th>구분</th>
-                        <th>네이버 검색 키워드</th>
-                        <th>상세 유입 URL</th>
-                        <th>기기</th>
-                    </tr>
-                </thead>
-                <tbody id="logs-tbody">
-                    <tr>
-                        <td colspan="8" class="empty-state">
-                            <i class="fa-solid fa-spinner fa-spin"></i>
-                            <p>실시간 로그를 불러오는 중입니다...</p>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+    <!-- Multi-Site Live Logs Section Container -->
+    <div id="multi-site-logs-container">
+        <div class="glass-card logs-section">
+            <div class="card-header">
+                <h2><i class="fa-solid fa-list-check"></i> 실시간 멀티 사이트 접속자 로그</h2>
+            </div>
+            <div class="table-responsive">
+                <table class="logs-table">
+                    <tbody id="logs-tbody">
+                        <tr>
+                            <td colspan="8" class="empty-state">
+                                <i class="fa-solid fa-spinner fa-spin"></i>
+                                <p>실시간 로그를 불러오는 중입니다...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
     <!-- Integration Code and Uptime Robot Guide -->
     <div class="glass-card guide-section">
         <div class="card-header">
-            <h2><i class="fa-solid fa-circle-info"></i> 추적 스크립트 연동 & 모니터링 설정 방법</h2>
+            <h2><i class="fa-solid fa-circle-info"></i> 추적 스크립트 연동 & 멀티 사이트 설정 방법</h2>
         </div>
         
-        <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 1rem; color: #cbd5e1;">
-            방문자 분석을 시작하려면 아래 추적 스크립트 코드를 복사하여 대상 홈페이지(기업통신114)의 HTML 파일 하단 <strong>&lt;/body&gt;</strong> 태그 바로 위에 삽입하세요.
+        <p style="font-size: 0.95rem; line-height: 1.6; margin-bottom: 0.8rem; color: #cbd5e1;">
+            방문자 분석을 시작하려면 아래 추적 스크립트 코드를 복사하여 대상 홈페이지의 HTML 파일 하단 <strong>&lt;/body&gt;</strong> 태그 바로 위에 삽입하세요.
         </p>
 
-        <div class="code-block">
-            <button class="copy-btn" onclick="copyTrackerCode()"><i class="fa-regular fa-copy"></i> 코드 복사</button>
-            <span id="script-code-text"></span>
+        <div style="margin-bottom: 1.2rem;">
+            <p style="font-size: 0.88rem; font-weight: 600; color: var(--accent-blue); margin-bottom: 0.4rem;">
+                <i class="fa-solid fa-tag"></i> 사이트 구분 ID 지정 코드 (추천):
+            </p>
+            <div class="code-block" style="margin-top:0.3rem;">
+                <button class="copy-btn" onclick="copyCode('script-code-site-text', this)"><i class="fa-regular fa-copy"></i> 코드 복사</button>
+                <span id="script-code-site-text"></span>
+            </div>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">* 예시: uplus1, site2 등 사이트 식별용 ID를 <code>?site=아이디</code>로 자유롭게 지정 가능합니다.</span>
+        </div>
+
+        <div>
+            <p style="font-size: 0.88rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.4rem;">
+                <i class="fa-solid fa-code"></i> 기본 자동 도메인 감지 코드:
+            </p>
+            <div class="code-block" style="margin-top:0.3rem;">
+                <button class="copy-btn" onclick="copyCode('script-code-text', this)"><i class="fa-regular fa-copy"></i> 코드 복사</button>
+                <span id="script-code-text"></span>
+            </div>
         </div>
 
         <div class="uptime-panel">
@@ -633,19 +639,20 @@
     const pingUrl = `${currentHost}/ping`;
     
     document.getElementById('script-code-text').textContent = `<script src="${trackerUrl}"><\/script>`;
+    document.getElementById('script-code-site-text').textContent = `<script src="${trackerUrl}?site=uplus1"><\/script>`;
     document.getElementById('ping-url-text').textContent = pingUrl;
 
-    function copyTrackerCode() {
-        const code = document.getElementById('script-code-text').textContent;
+    function copyCode(elementId, btnElement) {
+        const code = document.getElementById(elementId).textContent;
         navigator.clipboard.writeText(code).then(() => {
-            const btn = document.querySelector('.copy-btn');
-            btn.innerHTML = '<i class="fa-solid fa-check"></i> 복사 완료!';
-            btn.style.background = 'var(--accent-green)';
-            btn.style.color = '#0f172a';
+            const originalText = btnElement.innerHTML;
+            btnElement.innerHTML = '<i class="fa-solid fa-check"></i> 복사 완료!';
+            btnElement.style.background = 'var(--accent-green)';
+            btnElement.style.color = '#0f172a';
             setTimeout(() => {
-                btn.innerHTML = '<i class="fa-regular fa-copy"></i> 코드 복사';
-                btn.style.background = 'var(--card-bg)';
-                btn.style.color = 'var(--text-main)';
+                btnElement.innerHTML = originalText;
+                btnElement.style.background = 'var(--card-bg)';
+                btnElement.style.color = 'var(--text-main)';
             }, 2000);
         });
     }
@@ -803,41 +810,100 @@
                     });
                 }
 
-                // 4. Update Logs Table
-                const logsTbody = document.getElementById('logs-tbody');
-                logsTbody.innerHTML = '';
+                // 4. Update Multi-Site Logs Tables
+                const container = document.getElementById('multi-site-logs-container');
+                container.innerHTML = '';
+
                 if (data.logs.length === 0) {
-                    logsTbody.innerHTML = '<tr><td colspan="8" class="empty-state" style="padding: 4rem 0;"><i class="fa-solid fa-folder-open"></i><p>아직 수집된 방문 기록이 없습니다.</p></td></tr>';
+                    container.innerHTML = `
+                        <div class="glass-card logs-section">
+                            <div class="card-header">
+                                <h2><i class="fa-solid fa-list-check"></i> 실시간 멀티 사이트 접속자 로그</h2>
+                            </div>
+                            <div class="empty-state" style="padding: 3rem 0;">
+                                <i class="fa-solid fa-folder-open"></i>
+                                <p>아직 수집된 방문 기록이 없습니다.</p>
+                            </div>
+                        </div>
+                    `;
                 } else {
+                    // Group logs by site_id
+                    const groupedLogs = {};
                     data.logs.forEach(log => {
-                        let badgeClass, badgeText;
-                        if (log.is_naver_ad === 1) {
-                            badgeClass = 'badge-naver';
-                            badgeText = '<i class="fa-solid fa-square-n"></i> 네이버광고';
-                        } else if (log.is_naver_ad === 2) {
-                            badgeClass = 'badge-daum';
-                            badgeText = '<i class="fa-solid fa-comment"></i> 다음광고';
-                        } else {
-                            badgeClass = 'badge-organic';
-                            badgeText = '<i class="fa-solid fa-globe"></i> 일반유입';
+                        const sId = log.site_id || 'default';
+                        if (!groupedLogs[sId]) {
+                            groupedLogs[sId] = [];
                         }
-                        const keywordDisplay = log.naver_keyword ? `"${log.naver_keyword}"` : '-';
-                        const mediaDisplay = log.naver_media ? ` <span style="font-size:0.75rem; color:var(--text-muted)">(${log.naver_media})</span>` : '';
-                        const refDisplay = log.referrer ? `<a href="${log.referrer}" target="_blank" class="referrer-link">${log.referrer}</a>` : '직접 입력 / 즐겨찾기';
-                        const deviceIcon = log.device_type === 'Mobile' ? 'fa-mobile-screen-button' : (log.device_type === 'Tablet' ? 'fa-tablet-screen-button' : 'fa-desktop');
-                        
-                        logsTbody.innerHTML += `
-                            <tr>
-                                <td style="font-weight: 500;">${log.timestamp}</td>
-                                <td>${formatReferrer(log.referrer)}</td>
-                                <td style="font-family: monospace; font-size: 0.95rem; letter-spacing: 0.02em;">${log.ip_address}</td>
-                                <td><span class="badge" style="background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.25); color: #c084fc; font-weight: 700;"><i class="fa-solid fa-arrow-trend-up"></i> ${log.ip_visit_count}회</span></td>
-                                <td><span class="badge ${badgeClass}">${badgeText}</span></td>
-                                <td><span class="keyword-cell">${keywordDisplay}</span>${mediaDisplay}</td>
-                                <td>${refDisplay}</td>
-                                <td><span class="badge badge-device"><i class="fa-solid ${deviceIcon}"></i> ${log.device_type}</span></td>
-                            </tr>
+                        groupedLogs[sId].push(log);
+                    });
+
+                    // Render a separate table section for each site_id
+                    Object.keys(groupedLogs).forEach(siteId => {
+                        const siteLogs = groupedLogs[siteId];
+                        let rowsHtml = '';
+
+                        siteLogs.forEach(log => {
+                            let badgeClass, badgeText;
+                            if (log.is_naver_ad === 1) {
+                                badgeClass = 'badge-naver';
+                                badgeText = '<i class="fa-solid fa-square-n"></i> 네이버광고';
+                            } else if (log.is_naver_ad === 2) {
+                                badgeClass = 'badge-daum';
+                                badgeText = '<i class="fa-solid fa-comment"></i> 다음광고';
+                            } else {
+                                badgeClass = 'badge-organic';
+                                badgeText = '<i class="fa-solid fa-globe"></i> 일반유입';
+                            }
+                            const keywordDisplay = log.naver_keyword ? `"${log.naver_keyword}"` : '-';
+                            const mediaDisplay = log.naver_media ? ` <span style="font-size:0.75rem; color:var(--text-muted)">(${log.naver_media})</span>` : '';
+                            const refDisplay = log.referrer ? `<a href="${log.referrer}" target="_blank" class="referrer-link">${log.referrer}</a>` : '직접 입력 / 즐겨찾기';
+                            const deviceIcon = log.device_type === 'Mobile' ? 'fa-mobile-screen-button' : (log.device_type === 'Tablet' ? 'fa-tablet-screen-button' : 'fa-desktop');
+
+                            rowsHtml += `
+                                <tr>
+                                    <td style="font-weight: 500;">${log.timestamp}</td>
+                                    <td>${formatReferrer(log.referrer)}</td>
+                                    <td style="font-family: monospace; font-size: 0.95rem; letter-spacing: 0.02em;">${log.ip_address}</td>
+                                    <td><span class="badge" style="background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.25); color: #c084fc; font-weight: 700;"><i class="fa-solid fa-arrow-trend-up"></i> ${log.ip_visit_count}회</span></td>
+                                    <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+                                    <td><span class="keyword-cell">${keywordDisplay}</span>${mediaDisplay}</td>
+                                    <td>${refDisplay}</td>
+                                    <td><span class="badge badge-device"><i class="fa-solid ${deviceIcon}"></i> ${log.device_type}</span></td>
+                                </tr>
+                            `;
+                        });
+
+                        const sectionHtml = `
+                            <div class="glass-card logs-section" style="margin-bottom: 2rem;">
+                                <div class="card-header">
+                                    <h2>
+                                        <i class="fa-solid fa-globe"></i> 
+                                        🌐 사이트 ID: <span style="color: var(--accent-blue); font-weight: 700;">${siteId}</span> 
+                                        <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal; margin-left: 0.6rem;">(기록: ${siteLogs.length}건)</span>
+                                    </h2>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="logs-table">
+                                        <thead>
+                                            <tr>
+                                                <th>방문 시간</th>
+                                                <th>유입 경로</th>
+                                                <th>IP 주소</th>
+                                                <th>누적 방문수</th>
+                                                <th>구분</th>
+                                                <th>네이버 검색 키워드</th>
+                                                <th>상세 유입 URL</th>
+                                                <th>기기</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${rowsHtml}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         `;
+                        container.innerHTML += sectionHtml;
                     });
                 }
 
