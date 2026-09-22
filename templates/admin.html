@@ -827,10 +827,13 @@
                         </div>
                     `;
                 } else {
-                    // Group logs by site_id
+                    // Group logs by site_id (Map 'default' to primary website name)
                     const groupedLogs = {};
                     data.logs.forEach(log => {
-                        const sId = log.site_id || 'default';
+                        let sId = log.site_id;
+                        if (!sId || sId === 'default') {
+                            sId = '기업통신114 (114check.com)';
+                        }
                         if (!groupedLogs[sId]) {
                             groupedLogs[sId] = [];
                         }
