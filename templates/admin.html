@@ -639,7 +639,7 @@
     const pingUrl = `${currentHost}/ping`;
     
     document.getElementById('script-code-text').textContent = `<script src="${trackerUrl}"><\/script>`;
-    document.getElementById('script-code-site-text').textContent = `<script src="${trackerUrl}?site=uplus1"><\/script>`;
+    document.getElementById('script-code-site-text').textContent = `<script src="${trackerUrl}?site=number"><\/script>`;
     document.getElementById('ping-url-text').textContent = pingUrl;
 
     function copyCode(elementId, btnElement) {
@@ -827,12 +827,14 @@
                         </div>
                     `;
                 } else {
-                    // Group logs by site_id (Map 'default' to primary website name)
+                    // Group logs by site_id (Map 'default' to primary website name, 'uplus1' to 'number')
                     const groupedLogs = {};
                     data.logs.forEach(log => {
                         let sId = log.site_id;
                         if (!sId || sId === 'default') {
                             sId = '기업통신114 (114check.com)';
+                        } else if (sId === 'uplus1') {
+                            sId = 'number';
                         }
                         if (!groupedLogs[sId]) {
                             groupedLogs[sId] = [];

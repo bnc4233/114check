@@ -55,6 +55,7 @@ def init_db():
         ''')
         try:
             cursor.execute("ALTER TABLE visitor_logs ADD COLUMN IF NOT EXISTS site_id VARCHAR(100) DEFAULT 'default'")
+            cursor.execute("UPDATE visitor_logs SET site_id = 'number' WHERE site_id = 'uplus1'")
         except Exception:
             pass
     else:
@@ -80,6 +81,7 @@ def init_db():
             columns = [column[1] for column in cursor.fetchall()]
             if 'site_id' not in columns:
                 cursor.execute("ALTER TABLE visitor_logs ADD COLUMN site_id TEXT DEFAULT 'default'")
+            cursor.execute("UPDATE visitor_logs SET site_id = 'number' WHERE site_id = 'uplus1'")
         except Exception:
             pass
 
