@@ -157,16 +157,33 @@ def ping():
     return "서버 살아있음!", 200
 
 
+SITE_DOMAIN_MAPPING = {
+    'mobilephone.bizsmart.kr': 'mobile-phone',
+    'mobilephone': 'mobile-phone',
+    'mobile-phone': 'mobile-phone',
+    'm2m.bizsmart.kr': 'm2m',
+    'm2m': 'm2m',
+    'number.bizsmart.kr': 'number',
+    'number': 'number',
+    'uplus1': 'number',
+    '114check': '기업통신114 (114check.com)',
+}
+
 def extract_site_id(provided_site, url):
     """Determines site_id from explicit site parameter or falls back to extracted URL domain."""
     if provided_site and str(provided_site).strip():
-        return str(provided_site).strip()
+        clean_site = str(provided_site).strip()
+        if clean_site in SITE_DOMAIN_MAPPING:
+            return SITE_DOMAIN_MAPPING[clean_site]
+        return clean_site
     if url:
         try:
             parsed = urllib.parse.urlparse(url)
             netloc = parsed.netloc or parsed.path.split('/')[0]
             if netloc:
                 clean_host = netloc.split(':')[0].replace('www.', '')
+                if clean_host in SITE_DOMAIN_MAPPING:
+                    return SITE_DOMAIN_MAPPING[clean_host]
                 if clean_host:
                     return clean_host
         except Exception:
@@ -277,7 +294,7 @@ def admin():
 def api_stats():
     """Returns real-time dashboard data in JSON format."""
     stats = get_stats_summary()
-    recent_logs = get_recent_logs(limit=100)
+    recent_logs = get_recent_logs(limit=200)
     return jsonify({
         "stats": stats,
         "logs": recent_logs
