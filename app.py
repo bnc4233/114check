@@ -158,9 +158,9 @@ def ping():
 
 
 SITE_DOMAIN_MAPPING = {
-    'mobilephone.bizsmart.kr': 'mobile-phone',
-    'mobilephone': 'mobile-phone',
-    'mobile-phone': 'mobile-phone',
+    'lan.bizsmart.kr': 'smart-net',
+    'smart-net': 'smart-net',
+    'smartnet': 'smart-net',
     'm2m.bizsmart.kr': 'm2m',
     'm2m': 'm2m',
     'number.bizsmart.kr': 'number',
@@ -206,6 +206,10 @@ def track():
     
     # 1. Determine site_id
     site_id = extract_site_id(raw_site_id, url)
+
+    # 1-1. Ignore tracking for deleted/discontinued sites
+    if site_id in ('mobile-phone', 'mobilephone.bizsmart.kr', 'mobilephone'):
+        return jsonify({"status": "ignored", "recorded": False}), 200
 
     # 2. Get real visitor IP
     ip_address = get_client_ip()

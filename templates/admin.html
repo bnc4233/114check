@@ -595,17 +595,17 @@
 
         <div style="margin-bottom: 1.2rem;">
             <p style="font-size: 0.88rem; font-weight: 600; color: var(--accent-blue); margin-bottom: 0.4rem;">
-                <i class="fa-solid fa-mobile-screen"></i> mobile-phone 전용 코드 (https://mobilephone.bizsmart.kr):
+                <i class="fa-solid fa-network-wired"></i> smart-net 전용 코드 (https://lan.bizsmart.kr):
             </p>
             <div class="code-block" style="margin-top:0.3rem;">
-                <button class="copy-btn" onclick="copyCode('script-code-mobile-text', this)"><i class="fa-regular fa-copy"></i> 코드 복사</button>
-                <span id="script-code-mobile-text"></span>
+                <button class="copy-btn" onclick="copyCode('script-code-smartnet-text', this)"><i class="fa-regular fa-copy"></i> 코드 복사</button>
+                <span id="script-code-smartnet-text"></span>
             </div>
         </div>
 
         <div style="margin-bottom: 1.2rem;">
             <p style="font-size: 0.88rem; font-weight: 600; color: var(--accent-purple); margin-bottom: 0.4rem;">
-                <i class="fa-solid fa-network-wired"></i> m2m 전용 코드 (https://m2m.bizsmart.kr):
+                <i class="fa-solid fa-microchip"></i> m2m 전용 코드 (https://m2m.bizsmart.kr):
             </p>
             <div class="code-block" style="margin-top:0.3rem;">
                 <button class="copy-btn" onclick="copyCode('script-code-m2m-text', this)"><i class="fa-regular fa-copy"></i> 코드 복사</button>
@@ -659,7 +659,7 @@
     
     document.getElementById('script-code-text').textContent = `<script src="${trackerUrl}"><\/script>`;
     document.getElementById('script-code-site-text').textContent = `<script src="${trackerUrl}?site=number"><\/script>`;
-    document.getElementById('script-code-mobile-text').textContent = `<script src="${trackerUrl}?site=mobile-phone"><\/script>`;
+    document.getElementById('script-code-smartnet-text').textContent = `<script src="${trackerUrl}?site=smart-net"><\/script>`;
     document.getElementById('script-code-m2m-text').textContent = `<script src="${trackerUrl}?site=m2m"><\/script>`;
     document.getElementById('ping-url-text').textContent = pingUrl;
 
@@ -852,7 +852,7 @@
                     const SITE_INFO = {
                         '기업통신114 (114check.com)': { desc: '114check.com 전용 구역' },
                         'number': { desc: 'number.bizsmart.kr 전용 구역' },
-                        'mobile-phone': { desc: 'mobilephone.bizsmart.kr 전용 구역' },
+                        'smart-net': { desc: 'lan.bizsmart.kr 전용 구역' },
                         'm2m': { desc: 'm2m.bizsmart.kr 전용 구역' }
                     };
 
@@ -860,12 +860,15 @@
                     const groupedLogs = {};
                     data.logs.forEach(log => {
                         let sId = log.site_id;
+                        if (sId === 'mobile-phone' || sId === 'mobilephone.bizsmart.kr' || sId === 'mobilephone') {
+                            return; // Exclude deleted site
+                        }
                         if (!sId || sId === 'default' || sId === 'xn--114-vg9lq14f91dhn0a.com') {
                             sId = '기업통신114 (114check.com)';
                         } else if (sId === 'uplus1' || sId === 'number.bizsmart.kr') {
                             sId = 'number';
-                        } else if (sId === 'mobilephone.bizsmart.kr' || sId === 'mobilephone') {
-                            sId = 'mobile-phone';
+                        } else if (sId === 'lan.bizsmart.kr' || sId === 'smartnet') {
+                            sId = 'smart-net';
                         } else if (sId === 'm2m.bizsmart.kr') {
                             sId = 'm2m';
                         }
