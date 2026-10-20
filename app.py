@@ -167,6 +167,7 @@ SITE_DOMAIN_MAPPING = {
     'number': 'number',
     'uplus1': 'number',
     '114check': '기업통신114 (114check.com)',
+    'xn--114-vg9lq14f91dhn0a.com': '기업통신114 (114check.com)',
 }
 
 def extract_site_id(provided_site, url):
