@@ -146,6 +146,59 @@ def get_recent_logs(limit=100):
     conn.close()
     return logs
 
+def reclassify_past_logs(parser_func):
+    """
+    Safely re-evaluates past logs in visitor_logs using the updated parser.
+    DOES NOT DELETE any data. Only updates is_naver_ad and keywords if a past log
+    was originally classified as organic (0) but actually contained ad parameters.
+    """
+    try:
+        conn = get_db_connection()
+        if is_postgres():
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute("SELECT id, full_url, referrer, is_naver_ad, naver_keyword FROM visitor_logs WHERE full_url IS NOT NULL")
+            rows = [dict(r) for r in cursor.fetchall()]
+        else:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, full_url, referrer, is_naver_ad, naver_keyword FROM visitor_logs WHERE full_url IS NOT NULL")
+            rows = [dict(r) for r in cursor.fetchall()]
+
+        placeholder = '%s' if is_postgres() else '?'
+        updates = []
+        for r in rows:
+            row_id = r['id']
+            url = r.get('full_url')
+            referrer = r.get('referrer')
+            current_ad = r.get('is_naver_ad', 0)
+            current_kw = r.get('naver_keyword')
+
+            # Re-parse using new parser
+            new_ad_type, new_kw, new_media, new_group, new_ad_id = parser_func(url, referrer)
+
+            # If it was classified as organic (0) but new parser finds it is an ad (1 or 2),
+            # or if an ad didn't have a keyword/media and now has one:
+            if (current_ad == 0 and new_ad_type != 0) or (new_ad_type != 0 and not current_kw and new_kw):
+                updates.append((new_ad_type, new_kw, new_media, new_group, new_ad_id, row_id))
+
+        if updates:
+            for upd in updates:
+                update_query = f'''
+                    UPDATE visitor_logs
+                    SET is_naver_ad = {placeholder},
+                        naver_keyword = {placeholder},
+                        naver_media = {placeholder},
+                        naver_ad_group = {placeholder},
+                        naver_ad = {placeholder}
+                    WHERE id = {placeholder}
+                '''
+                cursor.execute(update_query, upd)
+            conn.commit()
+
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print(f"Error in reclassify_past_logs: {e}")
+
 def get_stats_summary():
     """Calculates statistics dynamically with SQL dialect adaptations, including Naver and Daum Ads."""
     conn = get_db_connection()

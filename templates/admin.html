@@ -48,7 +48,8 @@
         }
 
         .container {
-            max-width: 1400px;
+            width: 96%;
+            max-width: 1750px;
             margin: 0 auto;
         }
 
@@ -304,28 +305,104 @@
             width: 100%;
             border-collapse: collapse;
             text-align: left;
-            font-size: 0.9rem;
+            font-size: 0.88rem;
+            table-layout: auto;
         }
 
         .logs-table th {
-            background: rgba(15, 23, 42, 0.4);
+            background: rgba(15, 23, 42, 0.45);
             color: var(--text-muted);
             font-weight: 600;
-            padding: 1rem 1.2rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
             white-space: nowrap;
         }
 
         .logs-table td {
-            padding: 1rem 1.2rem;
+            padding: 0.85rem 1rem;
             border-bottom: 1px solid rgba(255, 255, 255, 0.04);
             color: var(--text-main);
             vertical-align: middle;
-            white-space: nowrap;
         }
 
         .logs-table tr:hover td {
             background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Column Specific Layout to Prevent Horizontal Scroll */
+        .col-time { white-space: nowrap; width: 155px; }
+        .col-ref { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .col-ip { white-space: nowrap; width: 125px; font-family: monospace; font-size: 0.92rem; }
+        .col-count { white-space: nowrap; width: 90px; text-align: center; }
+        .col-badge { white-space: nowrap; width: 110px; text-align: center; }
+        .col-keyword { max-width: 200px; word-break: break-all; }
+        .col-url { max-width: 250px; }
+        .col-device { white-space: nowrap; width: 95px; text-align: center; }
+
+        /* Pagination Bar */
+        .pagination-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.9rem 1.2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            margin-top: 0.5rem;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+        }
+
+        .pagination-info {
+            font-size: 0.84rem;
+            color: var(--text-muted);
+        }
+
+        .pagination-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+
+        .page-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            padding: 0.35rem 0.65rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-family: var(--font-family);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            height: 32px;
+        }
+
+        .page-btn:hover:not(:disabled):not(.active) {
+            background: rgba(56, 189, 248, 0.15);
+            border-color: var(--accent-blue);
+            color: #fff;
+        }
+
+        .page-btn.active {
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+            border-color: transparent;
+            color: #fff;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+            cursor: default;
+        }
+
+        .page-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .page-ellipsis {
+            color: var(--text-muted);
+            padding: 0 0.2rem;
+            font-size: 0.85rem;
         }
 
         /* Badges styling */
@@ -770,6 +847,202 @@
         }
     }
 
+    // Escape attribute text
+    function escapeAttr(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // Pagination State (10 items per page)
+    const PAGE_SIZE = 10;
+    const siteCurrentPage = {};
+    let cachedGroupedLogs = {};
+
+    // Render Multi-Site Logs with Pagination
+    function renderAllSiteTables() {
+        const container = document.getElementById('multi-site-logs-container');
+        const siteIds = Object.keys(cachedGroupedLogs);
+
+        if (siteIds.length === 0) {
+            container.innerHTML = `
+                <div class="glass-card logs-section">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-list-check"></i> 실시간 멀티 사이트 접속자 로그</h2>
+                    </div>
+                    <div class="empty-state" style="padding: 3rem 0;">
+                        <i class="fa-solid fa-folder-open"></i>
+                        <p>아직 수집된 방문 기록이 없습니다.</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const SITE_INFO = {
+            '기업통신114 (114check.com)': { desc: '114check.com 전용 구역' },
+            'number': { desc: 'number.bizsmart.kr 전용 구역' },
+            'smart-net': { desc: 'lan.bizsmart.kr 전용 구역' },
+            'm2m': { desc: 'm2m.bizsmart.kr 전용 구역' }
+        };
+
+        let totalHtml = '';
+
+        siteIds.forEach(siteId => {
+            const siteLogs = cachedGroupedLogs[siteId] || [];
+            const totalCount = siteLogs.length;
+            const totalPages = Math.ceil(totalCount / PAGE_SIZE) || 1;
+
+            if (!siteCurrentPage[siteId] || siteCurrentPage[siteId] < 1) {
+                siteCurrentPage[siteId] = 1;
+            }
+            if (siteCurrentPage[siteId] > totalPages) {
+                siteCurrentPage[siteId] = totalPages;
+            }
+
+            const currPage = siteCurrentPage[siteId];
+            const startIdx = (currPage - 1) * PAGE_SIZE;
+            const endIdx = Math.min(startIdx + PAGE_SIZE, totalCount);
+            const pagedLogs = siteLogs.slice(startIdx, endIdx);
+
+            let rowsHtml = '';
+            if (pagedLogs.length === 0) {
+                rowsHtml = `<tr><td colspan="8" class="empty-state" style="padding: 2.5rem 0;">수집된 접속 기록이 없습니다.</td></tr>`;
+            } else {
+                pagedLogs.forEach(log => {
+                    let badgeClass, badgeText;
+                    if (log.is_naver_ad === 1) {
+                        badgeClass = 'badge-naver';
+                        badgeText = '<i class="fa-solid fa-square-n"></i> 네이버광고';
+                    } else if (log.is_naver_ad === 2) {
+                        badgeClass = 'badge-daum';
+                        badgeText = '<i class="fa-solid fa-comment"></i> 다음광고';
+                    } else {
+                        badgeClass = 'badge-organic';
+                        badgeText = '<i class="fa-solid fa-globe"></i> 일반유입';
+                    }
+                    const keywordDisplay = log.naver_keyword ? `"${log.naver_keyword}"` : '-';
+                    const mediaDisplay = log.naver_media ? ` <span style="font-size:0.75rem; color:var(--text-muted)">(${log.naver_media})</span>` : '';
+                    const refDisplay = log.referrer ? `<a href="${log.referrer}" target="_blank" class="referrer-link" title="${log.referrer}">${log.referrer}</a>` : '직접 입력 / 즐겨찾기';
+                    const deviceIcon = log.device_type === 'Mobile' ? 'fa-mobile-screen-button' : (log.device_type === 'Tablet' ? 'fa-tablet-screen-button' : 'fa-desktop');
+
+                    rowsHtml += `
+                        <tr>
+                            <td class="col-time" style="font-weight: 500;">${log.timestamp}</td>
+                            <td class="col-ref" title="${log.referrer || ''}">${formatReferrer(log.referrer)}</td>
+                            <td class="col-ip">${log.ip_address}</td>
+                            <td class="col-count"><span class="badge" style="background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.25); color: #c084fc; font-weight: 700;"><i class="fa-solid fa-arrow-trend-up"></i> ${log.ip_visit_count}회</span></td>
+                            <td class="col-badge"><span class="badge ${badgeClass}">${badgeText}</span></td>
+                            <td class="col-keyword"><span class="keyword-cell">${keywordDisplay}</span>${mediaDisplay}</td>
+                            <td class="col-url">${refDisplay}</td>
+                            <td class="col-device"><span class="badge badge-device"><i class="fa-solid ${deviceIcon}"></i> ${log.device_type}</span></td>
+                        </tr>
+                    `;
+                });
+            }
+
+            // Pagination Controls
+            let paginationControlsHtml = '';
+            if (totalPages > 1) {
+                // Prev button
+                const prevDisabled = currPage === 1 ? 'disabled' : '';
+                paginationControlsHtml += `<button class="page-btn" data-site="${escapeAttr(siteId)}" data-page="${currPage - 1}" ${prevDisabled} title="이전 페이지"><i class="fa-solid fa-chevron-left"></i></button>`;
+
+                // Visible page buttons (up to 5 buttons around current page)
+                const maxVisible = 5;
+                let startPage = Math.max(1, currPage - 2);
+                let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+                if (endPage - startPage < maxVisible - 1) {
+                    startPage = Math.max(1, endPage - maxVisible + 1);
+                }
+
+                if (startPage > 1) {
+                    paginationControlsHtml += `<button class="page-btn" data-site="${escapeAttr(siteId)}" data-page="1">1</button>`;
+                    if (startPage > 2) {
+                        paginationControlsHtml += `<span class="page-ellipsis">...</span>`;
+                    }
+                }
+
+                for (let p = startPage; p <= endPage; p++) {
+                    const activeClass = p === currPage ? 'active' : '';
+                    paginationControlsHtml += `<button class="page-btn ${activeClass}" data-site="${escapeAttr(siteId)}" data-page="${p}">${p}</button>`;
+                }
+
+                if (endPage < totalPages) {
+                    if (endPage < totalPages - 1) {
+                        paginationControlsHtml += `<span class="page-ellipsis">...</span>`;
+                    }
+                    paginationControlsHtml += `<button class="page-btn" data-site="${escapeAttr(siteId)}" data-page="${totalPages}">${totalPages}</button>`;
+                }
+
+                // Next button
+                const nextDisabled = currPage === totalPages ? 'disabled' : '';
+                paginationControlsHtml += `<button class="page-btn" data-site="${escapeAttr(siteId)}" data-page="${currPage + 1}" ${nextDisabled} title="다음 페이지"><i class="fa-solid fa-chevron-right"></i></button>`;
+            }
+
+            const paginationInfoText = totalCount > 0 
+                ? `총 <strong>${totalCount.toLocaleString()}</strong>건 중 ${startIdx + 1}~${endIdx}건 표시 (${currPage} / ${totalPages} 페이지)` 
+                : '데이터 없음';
+
+            const siteMeta = SITE_INFO[siteId];
+            const descHtml = siteMeta ? `<span style="font-size: 0.82rem; color: #94a3b8; font-weight: normal; margin-left: 0.8rem;">&lt;-- ${siteMeta.desc}</span>` : '';
+
+            totalHtml += `
+                <div class="glass-card logs-section" style="margin-bottom: 2rem;">
+                    <div class="card-header">
+                        <h2>
+                            <i class="fa-solid fa-globe"></i> 
+                            🌐 사이트 ID: <span style="color: var(--accent-blue); font-weight: 700;">${siteId}</span> 
+                            <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal; margin-left: 0.6rem;">(총 기록: ${totalCount}건)</span>
+                            ${descHtml}
+                        </h2>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="logs-table">
+                            <thead>
+                                <tr>
+                                    <th class="col-time">방문 시간</th>
+                                    <th class="col-ref">유입 경로</th>
+                                    <th class="col-ip">IP 주소</th>
+                                    <th class="col-count">누적 방문수</th>
+                                    <th class="col-badge">구분</th>
+                                    <th class="col-keyword">네이버 검색 키워드</th>
+                                    <th class="col-url">상세 유입 URL</th>
+                                    <th class="col-device">기기</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rowsHtml}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination-bar">
+                        <div class="pagination-info">${paginationInfoText}</div>
+                        <div class="pagination-controls">${paginationControlsHtml}</div>
+                    </div>
+                </div>
+            `;
+        });
+
+        container.innerHTML = totalHtml;
+    }
+
+    // Attach delegated click listener for pagination buttons
+    document.addEventListener('DOMContentLoaded', () => {
+        const logsContainer = document.getElementById('multi-site-logs-container');
+        if (logsContainer) {
+            logsContainer.addEventListener('click', function(e) {
+                const btn = e.target.closest('.page-btn');
+                if (!btn || btn.disabled || btn.classList.contains('active')) return;
+                const siteId = btn.getAttribute('data-site');
+                const page = parseInt(btn.getAttribute('data-page'), 10);
+                if (siteId && !isNaN(page)) {
+                    siteCurrentPage[siteId] = page;
+                    renderAllSiteTables();
+                }
+            });
+        }
+    });
+
     // Refresh Dashboard Data
     function refreshData() {
         fetch('/api/stats')
@@ -831,126 +1104,30 @@
                     });
                 }
 
-                // 4. Update Multi-Site Logs Tables
-                const container = document.getElementById('multi-site-logs-container');
-                container.innerHTML = '';
+                // 4. Update Multi-Site Logs Tables (Group logs & render with pagination)
+                const groupedLogs = {};
+                data.logs.forEach(log => {
+                    let sId = log.site_id;
+                    if (sId === 'mobile-phone' || sId === 'mobilephone.bizsmart.kr' || sId === 'mobilephone') {
+                        return; // Exclude deleted site
+                    }
+                    if (!sId || sId === 'default' || sId === 'xn--114-vg9lq14f91dhn0a.com') {
+                        sId = '기업통신114 (114check.com)';
+                    } else if (sId === 'uplus1' || sId === 'number.bizsmart.kr') {
+                        sId = 'number';
+                    } else if (sId === 'lan.bizsmart.kr' || sId === 'smartnet') {
+                        sId = 'smart-net';
+                    } else if (sId === 'm2m.bizsmart.kr') {
+                        sId = 'm2m';
+                    }
+                    if (!groupedLogs[sId]) {
+                        groupedLogs[sId] = [];
+                    }
+                    groupedLogs[sId].push(log);
+                });
 
-                if (data.logs.length === 0) {
-                    container.innerHTML = `
-                        <div class="glass-card logs-section">
-                            <div class="card-header">
-                                <h2><i class="fa-solid fa-list-check"></i> 실시간 멀티 사이트 접속자 로그</h2>
-                            </div>
-                            <div class="empty-state" style="padding: 3rem 0;">
-                                <i class="fa-solid fa-folder-open"></i>
-                                <p>아직 수집된 방문 기록이 없습니다.</p>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    // Site description mapping for header display
-                    const SITE_INFO = {
-                        '기업통신114 (114check.com)': { desc: '114check.com 전용 구역' },
-                        'number': { desc: 'number.bizsmart.kr 전용 구역' },
-                        'smart-net': { desc: 'lan.bizsmart.kr 전용 구역' },
-                        'm2m': { desc: 'm2m.bizsmart.kr 전용 구역' }
-                    };
-
-                    // Group logs by site_id (Map 'default' to primary website name, 'uplus1' to 'number')
-                    const groupedLogs = {};
-                    data.logs.forEach(log => {
-                        let sId = log.site_id;
-                        if (sId === 'mobile-phone' || sId === 'mobilephone.bizsmart.kr' || sId === 'mobilephone') {
-                            return; // Exclude deleted site
-                        }
-                        if (!sId || sId === 'default' || sId === 'xn--114-vg9lq14f91dhn0a.com') {
-                            sId = '기업통신114 (114check.com)';
-                        } else if (sId === 'uplus1' || sId === 'number.bizsmart.kr') {
-                            sId = 'number';
-                        } else if (sId === 'lan.bizsmart.kr' || sId === 'smartnet') {
-                            sId = 'smart-net';
-                        } else if (sId === 'm2m.bizsmart.kr') {
-                            sId = 'm2m';
-                        }
-                        if (!groupedLogs[sId]) {
-                            groupedLogs[sId] = [];
-                        }
-                        groupedLogs[sId].push(log);
-                    });
-
-                    // Render a separate table section for each site_id
-                    Object.keys(groupedLogs).forEach(siteId => {
-                        const siteLogs = groupedLogs[siteId];
-                        let rowsHtml = '';
-
-                        siteLogs.forEach(log => {
-                            let badgeClass, badgeText;
-                            if (log.is_naver_ad === 1) {
-                                badgeClass = 'badge-naver';
-                                badgeText = '<i class="fa-solid fa-square-n"></i> 네이버광고';
-                            } else if (log.is_naver_ad === 2) {
-                                badgeClass = 'badge-daum';
-                                badgeText = '<i class="fa-solid fa-comment"></i> 다음광고';
-                            } else {
-                                badgeClass = 'badge-organic';
-                                badgeText = '<i class="fa-solid fa-globe"></i> 일반유입';
-                            }
-                            const keywordDisplay = log.naver_keyword ? `"${log.naver_keyword}"` : '-';
-                            const mediaDisplay = log.naver_media ? ` <span style="font-size:0.75rem; color:var(--text-muted)">(${log.naver_media})</span>` : '';
-                            const refDisplay = log.referrer ? `<a href="${log.referrer}" target="_blank" class="referrer-link">${log.referrer}</a>` : '직접 입력 / 즐겨찾기';
-                            const deviceIcon = log.device_type === 'Mobile' ? 'fa-mobile-screen-button' : (log.device_type === 'Tablet' ? 'fa-tablet-screen-button' : 'fa-desktop');
-
-                            rowsHtml += `
-                                <tr>
-                                    <td style="font-weight: 500;">${log.timestamp}</td>
-                                    <td>${formatReferrer(log.referrer)}</td>
-                                    <td style="font-family: monospace; font-size: 0.95rem; letter-spacing: 0.02em;">${log.ip_address}</td>
-                                    <td><span class="badge" style="background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.25); color: #c084fc; font-weight: 700;"><i class="fa-solid fa-arrow-trend-up"></i> ${log.ip_visit_count}회</span></td>
-                                    <td><span class="badge ${badgeClass}">${badgeText}</span></td>
-                                    <td><span class="keyword-cell">${keywordDisplay}</span>${mediaDisplay}</td>
-                                    <td>${refDisplay}</td>
-                                    <td><span class="badge badge-device"><i class="fa-solid ${deviceIcon}"></i> ${log.device_type}</span></td>
-                                </tr>
-                            `;
-                        });
-
-                        const siteMeta = SITE_INFO[siteId];
-                        const descHtml = siteMeta ? `<span style="font-size: 0.82rem; color: #94a3b8; font-weight: normal; margin-left: 0.8rem;">&lt;-- ${siteMeta.desc}</span>` : '';
-
-                        const sectionHtml = `
-                            <div class="glass-card logs-section" style="margin-bottom: 2rem;">
-                                <div class="card-header">
-                                    <h2>
-                                        <i class="fa-solid fa-globe"></i> 
-                                        🌐 사이트 ID: <span style="color: var(--accent-blue); font-weight: 700;">${siteId}</span> 
-                                        <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal; margin-left: 0.6rem;">(기록: ${siteLogs.length}건)</span>
-                                        ${descHtml}
-                                    </h2>
-                                </div>
-                                <div class="table-responsive">
-                                    <table class="logs-table">
-                                        <thead>
-                                            <tr>
-                                                <th>방문 시간</th>
-                                                <th>유입 경로</th>
-                                                <th>IP 주소</th>
-                                                <th>누적 방문수</th>
-                                                <th>구분</th>
-                                                <th>네이버 검색 키워드</th>
-                                                <th>상세 유입 URL</th>
-                                                <th>기기</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${rowsHtml}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        `;
-                        container.innerHTML += sectionHtml;
-                    });
-                }
+                cachedGroupedLogs = groupedLogs;
+                renderAllSiteTables();
 
                 // 5. Update chart
                 const traffic = stats.hourly_traffic;

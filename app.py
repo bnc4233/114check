@@ -2,7 +2,7 @@ import os
 import urllib.parse
 from flask import Flask, request, jsonify, render_template, Response
 from flask_cors import CORS
-from database import init_db, log_visitor, get_recent_logs, get_stats_summary
+from database import init_db, log_visitor, get_recent_logs, get_stats_summary, reclassify_past_logs
 
 app = Flask(__name__)
 # Enable CORS for tracking requests coming from other domains (e.g. your main website)
@@ -34,6 +34,7 @@ def detect_device(user_agent):
 def parse_naver_ads(url, referrer):
     """
     Parses Naver and Daum ad parameters from the URL and checks the referrer.
+    Supports standard ads, keyword match, and expanded search (확장 검색).
     - Return value for is_ad_type: 0 (Organic), 1 (Naver Ad), 2 (Daum Ad)
     """
     is_ad_type = 0
@@ -49,19 +50,67 @@ def parse_naver_ads(url, referrer):
     parsed_url = urllib.parse.urlparse(url)
     params = urllib.parse.parse_qs(parsed_url.query)
 
-    # 1. Check for Naver tracking parameters (e.g. n_media, n_query)
-    if 'n_media' in params or 'n_query' in params or 'n_keyword' in params:
+    # 1. Comprehensive check for Naver tracking parameters (standard + expanded search)
+    naver_keys = {
+        'n_media', 'n_query', 'n_keyword', 'n_ad_group', 'n_ad',
+        'n_match', 'n_rank', 'n_campaign_type', 'n_ad_group_type',
+        'n_network', 'n_keyword_id', 'n_contract', 'n_mall_pid'
+    }
+    has_naver_param = any(k in params for k in naver_keys) or any(k.startswith('n_') for k in params)
+
+    if has_naver_param:
         is_ad_type = 1
         
-        # Decode keyword (usually in n_query)
-        if 'n_query' in params:
-            raw_keyword = params['n_query'][0]
+        # 1-1. Decode keyword: prefer user actual search query (n_query), then registered keyword (n_keyword)
+        if 'n_query' in params and params['n_query'][0].strip():
+            raw_keyword = params['n_query'][0].strip()
             try:
                 keyword = urllib.parse.unquote(raw_keyword)
             except Exception:
                 keyword = raw_keyword
+        elif 'n_keyword' in params and params['n_keyword'][0].strip():
+            raw_keyword = params['n_keyword'][0].strip()
+            try:
+                keyword = urllib.parse.unquote(raw_keyword)
+            except Exception:
+                keyword = raw_keyword
+
+        # If keyword is still empty (common in Naver expanded search '확장 검색'), check referrer or fallback
+        if not keyword:
+            if referrer:
+                try:
+                    parsed_ref = urllib.parse.urlparse(referrer)
+                    ref_params = urllib.parse.parse_qs(parsed_ref.query)
+                    if 'query' in ref_params and ref_params['query'][0].strip():
+                        keyword = urllib.parse.unquote(ref_params['query'][0].strip())
+                    elif 'q' in ref_params and ref_params['q'][0].strip():
+                        keyword = urllib.parse.unquote(ref_params['q'][0].strip())
+                except Exception:
+                    pass
+
+            # If still not found, label it clearly according to Naver Ad Manager standard
+            if not keyword:
+                match_code = params.get('n_match', [''])[0]
+                if match_code == '2':
+                    keyword = '확장 검색 결과'
+                elif 'n_ad_group' in params or 'n_ad' in params:
+                    keyword = '확장 검색 결과'
+                else:
+                    keyword = '네이버 광고 유입'
         
-        # Extract media source
+        # 1-2. Extract match type suffix (e.g. n_match=2 is 키워드 확장 / 확장 검색)
+        match_code = params.get('n_match', [''])[0]
+        match_suffix = ''
+        if match_code == '2':
+            match_suffix = '(확장검색)'
+        elif match_code == '3':
+            match_suffix = '(연관검색)'
+        elif match_code == '4':
+            match_suffix = '(유사검색)'
+        elif match_code == '5':
+            match_suffix = '(스마트블록)'
+
+        # 1-3. Extract media source
         if 'n_media' in params:
             media_code = params['n_media'][0]
             media_map = {
@@ -71,16 +120,19 @@ def parse_naver_ads(url, referrer):
                 '4': '네이버_블로그/카페',
                 '5': '네이버_쇼핑'
             }
-            media = media_map.get(media_code, f"네이버_기타매체({media_code})")
+            base_media = media_map.get(media_code, f"네이버_기타매체({media_code})")
+            media = f"{base_media} {match_suffix}".strip() if match_suffix else base_media
+        else:
+            media = f"네이버_파워링크 {match_suffix}".strip() if match_suffix else '네이버_파워링크(확장)'
         
-        # Extract ad group and ad ID
+        # 1-4. Extract ad group and ad ID
         if 'n_ad_group' in params:
             ad_group = params['n_ad_group'][0]
         if 'n_ad' in params:
             ad_id = params['n_ad'][0]
 
     # 2. Check for Daum / Kakao Keyword Ads tracking parameters (e.g. DMKW, k_query, k_keyword)
-    elif any(k in params for k in ['DMKW', 'DMCOL', 'k_query', 'k_keyword', 'k_campaign']):
+    elif any(k in params for k in ['DMKW', 'DMCOL', 'k_query', 'k_keyword', 'k_campaign', 'k_adgroup', 'k_ad']):
         is_ad_type = 2
         
         # Extract keyword (k_query is actual user query, DMKW is target keyword, k_keyword is registered keyword)
@@ -119,32 +171,45 @@ def parse_naver_ads(url, referrer):
 
     # Double check Referrer as fallback
     if is_ad_type == 0 and referrer:
-        parsed_ref = urllib.parse.urlparse(referrer)
-        if 'ad.search.naver.com' in parsed_ref.netloc:
-            is_ad_type = 1
-            ref_params = urllib.parse.parse_qs(parsed_ref.query)
-            if 'q' in ref_params:
-                try:
-                    keyword = urllib.parse.unquote(ref_params['q'][0])
-                except Exception:
-                    pass
-        elif 'search.daum.net' in parsed_ref.netloc:
-            # Daum Organic search (not ad)
-            ref_params = urllib.parse.parse_qs(parsed_ref.query)
-            if 'q' in ref_params:
-                try:
-                    keyword = urllib.parse.unquote(ref_params['q'][0])
-                except Exception:
-                    pass
-        elif 'search.naver.com' in parsed_ref.netloc:
-            ref_params = urllib.parse.parse_qs(parsed_ref.query)
-            if 'query' in ref_params:
-                try:
-                    keyword = urllib.parse.unquote(ref_params['query'][0])
-                except Exception:
-                    pass
+        try:
+            parsed_ref = urllib.parse.urlparse(referrer)
+            if 'ad.search.naver.com' in parsed_ref.netloc:
+                is_ad_type = 1
+                media = '네이버_광고검색(리퍼러)'
+                ref_params = urllib.parse.parse_qs(parsed_ref.query)
+                if 'q' in ref_params and ref_params['q'][0].strip():
+                    try:
+                        keyword = urllib.parse.unquote(ref_params['q'][0].strip())
+                    except Exception:
+                        pass
+                if not keyword:
+                    keyword = '확장 검색 결과'
+            elif 'search.daum.net' in parsed_ref.netloc:
+                # Daum Organic search (not ad)
+                ref_params = urllib.parse.parse_qs(parsed_ref.query)
+                if 'q' in ref_params:
+                    try:
+                        keyword = urllib.parse.unquote(ref_params['q'][0])
+                    except Exception:
+                        pass
+            elif 'search.naver.com' in parsed_ref.netloc:
+                ref_params = urllib.parse.parse_qs(parsed_ref.query)
+                if 'query' in ref_params:
+                    try:
+                        keyword = urllib.parse.unquote(ref_params['query'][0])
+                    except Exception:
+                        pass
+        except Exception:
+            pass
 
     return is_ad_type, keyword, media, ad_group, ad_id
+
+
+# Safely reclassify existing past logs to include expanded search ads (does NOT delete any data)
+try:
+    reclassify_past_logs(parse_naver_ads)
+except Exception as e:
+    print(f"Warning: Failed to run initial reclassification: {e}")
 
 
 @app.route('/ping', methods=['GET'])
