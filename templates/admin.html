@@ -711,14 +711,13 @@
         </div>
 
         <div class="uptime-panel">
-            <h4><i class="fa-solid fa-server"></i> UptimeRobot(업타임로봇) Render 무료 서버 Keep-Alive 설정</h4>
+            <h4><i class="fa-solid fa-server"></i> UptimeRobot(업타임로봇) Render &amp; Supabase Keep-Alive 설정</h4>
             <p style="margin-bottom: 0.5rem;">
-                Render 무료 서버는 15분 동안 새로운 방문이 없으면 자동으로 수면 모드로 전환되어 다음 방문 시 첫 로딩 속도가 30초 이상 지연될 수 있습니다.
-                이를 방지하기 위해 <strong>UptimeRobot</strong>을 사용하여 10분 간격으로 호출을 주면 서버가 잠들지 않고 언제나 실시간으로 유지됩니다!
+                Render 무료 서버(15분 미접속 시 슬립) 및 무료 Supabase DB(7일 미사용 시 일시정지)가 잠드는 것을 동시에 방지하기 위해 <strong>UptimeRobot</strong>으로 10분 간격 호출을 주면 서버와 데이터베이스가 모두 365일 활성 상태로 유지됩니다!
             </p>
             <p>
                 <strong>설정 방법:</strong> UptimeRobot 모니터 생성 시 <strong>HTTP(s) 모니터</strong>를 선택하고, URL에 <strong>홈페이지 주소가 아닌 아래 핑(Ping) 전용 주소</strong>를 등록하세요. 
-                이 주소는 방문자 통계에 전혀 영향을 미치지 않고 서버 생존 대답만 해주는 모니터링 특화 주소입니다.
+                이 주소는 방문자 통계에 전혀 영향을 미치지 않으면서 서버와 Supabase DB 생존 신호를 동시에 유지해 줍니다.
             </p>
             <div style="background: rgba(15, 23, 42, 0.4); padding: 0.6rem; border-radius: 6px; font-family: monospace; font-size: 0.85rem; color: #34d399; margin-top: 0.6rem; border: 1px solid rgba(52, 211, 153, 0.2);" id="ping-url-text">
                 로딩 중...

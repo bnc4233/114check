@@ -11,20 +11,31 @@ except ImportError:
     HAS_POSTGRES = False
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'tracker.db')
-DATABASE_URL = os.environ.get('DATABASE_URL')
+
+def get_database_url():
+    """Finds PostgreSQL connection string from common environment variables."""
+    for env_key in ['DATABASE_URL', 'SUPABASE_DB_URL', 'POSTGRES_URL', 'SUPABASE_DATABASE_URL', 'DB_URL']:
+        val = os.environ.get(env_key)
+        if val and val.strip():
+            return val.strip()
+    return None
 
 def is_postgres():
     """Checks whether to use PostgreSQL based on environment variables."""
-    return HAS_POSTGRES and DATABASE_URL and (DATABASE_URL.startswith('postgres://') or DATABASE_URL.startswith('postgresql://'))
+    db_url = get_database_url()
+    return bool(HAS_POSTGRES and db_url and (db_url.startswith('postgres://') or db_url.startswith('postgresql://')))
 
 def get_db_connection():
-    """Returns a connection depending on the environment (PostgreSQL on Render, SQLite locally)."""
+    """Returns a connection depending on the environment (PostgreSQL on Render/Supabase, SQLite locally)."""
     if is_postgres():
-        url = DATABASE_URL
+        url = get_database_url()
         # Render's DATABASE_URL can start with postgres://, but psycopg2 prefers postgresql://
         if url.startswith('postgres://'):
             url = url.replace('postgres://', 'postgresql://', 1)
-        conn = psycopg2.connect(url, sslmode='require')
+        if 'sslmode=' not in url:
+            conn = psycopg2.connect(url, sslmode='require')
+        else:
+            conn = psycopg2.connect(url)
         return conn
     else:
         conn = sqlite3.connect(DB_PATH)
@@ -296,3 +307,22 @@ def get_stats_summary():
         'top_referrers': top_referrers,
         'hourly_traffic': hourly_traffic
     }
+
+def keep_alive_db():
+    """
+    Runs a lightweight read-only query against the database to prevent
+    free-tier Supabase projects from pausing due to 7-day inactivity.
+    Does not modify any tables or affect visitor stats.
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT COUNT(*) FROM visitor_logs')
+        row = cursor.fetchone()
+        count = list(row.values())[0] if isinstance(row, dict) else (row[0] if row else 0)
+        cursor.close()
+        conn.close()
+        db_type = "PostgreSQL(Supabase)" if is_postgres() else "SQLite(로컬임시)"
+        return f"DB: {db_type} 연결 정상 (누적 {count}건)"
+    except Exception as e:
+        return f"DB 연결 오류: {str(e)}"

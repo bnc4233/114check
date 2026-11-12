@@ -2,7 +2,7 @@ import os
 import urllib.parse
 from flask import Flask, request, jsonify, render_template, Response
 from flask_cors import CORS
-from database import init_db, log_visitor, get_recent_logs, get_stats_summary, reclassify_past_logs
+from database import init_db, log_visitor, get_recent_logs, get_stats_summary, reclassify_past_logs, keep_alive_db
 
 app = Flask(__name__)
 # Enable CORS for tracking requests coming from other domains (e.g. your main website)
@@ -215,11 +215,12 @@ except Exception as e:
 @app.route('/ping', methods=['GET'])
 def ping():
     """
-    UptimeRobot Monitoring Endpoint.
-    Does NOT log anything to the database to keep clean statistics.
-    Simply returns text "서버 살아있음!"
+    UptimeRobot & Keep-Alive Monitoring Endpoint.
+    Does NOT log any visitor to keep clean statistics,
+    but runs a lightweight read query to prevent Supabase free-tier auto-pause.
     """
-    return "서버 살아있음!", 200
+    db_status = keep_alive_db()
+    return f"서버 살아있음! | {db_status}", 200
 
 
 SITE_DOMAIN_MAPPING = {
